@@ -24,7 +24,7 @@ function Login() {
 
       if (response.ok) {
         alert('Login successful!');
-        navigate('/home'); // ✅ THIS is where it goes
+        navigate('/home'); 
       } else {
         alert(data.error || 'Login failed.');
       }
