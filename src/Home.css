@@ -367,6 +367,27 @@ body.dark .task-card-actions button {
     gap: 1rem;
   }
 }
+  @media (max-width: 480px) {
+  .home-container {
+    padding: 0 10px;
+  }
+
+  .header {
+    padding: 1rem;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .kanban-column {
+    flex: 0 0 90vw;
+  }
+
+  .filters,
+  .task-form {
+    flex-direction: column;
+  }
+}
+
 
 
 
