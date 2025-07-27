@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import moment from 'moment';
@@ -28,38 +27,52 @@ function Home() {
   const [filterCategory, setFilterCategory] = useState('');
   const [darkMode, setDarkMode] = useState(false);
 
-  useEffect(() => {
-    const container = document.querySelector('.home-container');
-    if (container) {
-      container.classList.toggle('light-mode', !darkMode);
-      container.classList.toggle('dark-mode', darkMode);
-    }
-  }, [darkMode]);
-
   const statuses = Object.keys(columns);
 
-  const handleAddOrEditTask = (e) => {
+  useEffect(() => {
+    fetch('http://127.0.0.1:8000/api/tasks')
+      .then(res => res.json())
+      .then(tasks => {
+        const grouped = {
+          "À faire": [],
+          "En cours": [],
+          "Terminé": [],
+          "Annulé": []
+        };
+        tasks.forEach(task => {
+          grouped[task.status]?.push(task);
+        });
+        setColumns(grouped);
+      });
+  }, []);
+
+  const handleAddOrEditTask = async (e) => {
     e.preventDefault();
+
     const newTask = {
-      id: editingTaskId || Date.now().toString(),
       title,
       description,
       category,
       priority,
       deadline,
-      status
+      status,
     };
 
-    setColumns(prev => {
-      const newColumns = { ...prev };
-      if (editingTaskId) {
-        for (const key of statuses) {
-          newColumns[key] = newColumns[key].filter(task => task.id !== editingTaskId);
-        }
-      }
-      newColumns[status] = [...newColumns[status], newTask];
-      return newColumns;
-    });
+    if (editingTaskId) {
+      await fetch(`http://127.0.0.1:8000/api/tasks/${editingTaskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newTask)
+      });
+    } else {
+      const res = await fetch('http://127.0.0.1:8000/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newTask)
+      });
+      const created = await res.json();
+      newTask.id = created.id;
+    }
 
     setEditingTaskId(null);
     setTitle('');
@@ -68,6 +81,26 @@ function Home() {
     setPriority('Moyenne');
     setDeadline('');
     setStatus('À faire');
+
+    const res = await fetch('http://127.0.0.1:8000/api/tasks');
+    const updated = await res.json();
+    const grouped = { "À faire": [], "En cours": [], "Terminé": [], "Annulé": [] };
+    updated.forEach(t => grouped[t.status]?.push(t));
+    setColumns(grouped);
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    await fetch(`http://127.0.0.1:8000/api/tasks/${taskId}`, {
+      method: 'DELETE'
+    });
+
+    setColumns(prev => {
+      const updated = {};
+      for (const key of statuses) {
+        updated[key] = prev[key].filter(task => task.id !== taskId);
+      }
+      return updated;
+    });
   };
 
   const handleEditClick = (task, columnId) => {
@@ -80,52 +113,56 @@ function Home() {
     setStatus(columnId);
   };
 
-  const handleDeleteTask = (taskId) => {
-    setColumns(prev => {
-      const newColumns = {};
-      for (const key of statuses) {
-        newColumns[key] = prev[key].filter(task => task.id !== taskId);
-      }
-      return newColumns;
-    });
-    if (editingTaskId === taskId) {
-      setEditingTaskId(null);
-      setTitle('');
-      setDescription('');
-      setCategory('Personnel');
-      setPriority('Moyenne');
-      setDeadline('');
-      setStatus('À faire');
-    }
-  };
-
   const handleDragEnd = (result) => {
-    const { source, destination } = result;
-    if (!destination) return;
-    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+  const { source, destination } = result;
 
-    setColumns(prev => {
-      const newColumns = { ...prev };
-      const sourceTasks = Array.from(newColumns[source.droppableId]);
-      const [movedTask] = sourceTasks.splice(source.index, 1);
-      movedTask.status = destination.droppableId;
+  if (
+    !destination ||
+    (source.droppableId === destination.droppableId &&
+      source.index === destination.index)
+  ) {
+    return;
+  }
 
-      const destTasks = Array.from(newColumns[destination.droppableId]);
-      destTasks.splice(destination.index, 0, movedTask);
+  setColumns(prev => {
+    const updated = { ...prev };
+    const srcTasks = Array.from(updated[source.droppableId]);
+    const [movedTask] = srcTasks.splice(source.index, 1);
 
-      newColumns[source.droppableId] = sourceTasks;
-      newColumns[destination.droppableId] = destTasks;
-      return newColumns;
+    if (!movedTask) return prev;
+
+    movedTask.status = destination.droppableId;
+
+    const destTasks = Array.from(updated[destination.droppableId] || []);
+    destTasks.splice(destination.index, 0, movedTask);
+
+    updated[source.droppableId] = srcTasks;
+    updated[destination.droppableId] = destTasks;
+
+    // 🔁 Send update to backend *after* state update
+    fetch(`http://127.0.0.1:8000/api/tasks/${movedTask.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(movedTask),
+    }).catch(err => {
+      console.error("Failed to update task status on backend", err);
     });
-  };
+
+    return updated;
+  });
+};
+
+
 
   const filteredColumns = {};
   for (const key of statuses) {
-    filteredColumns[key] = columns[key].filter(task =>
-      (filterStatus === '' || task.status === filterStatus) &&
-      (filterPriority === '' || task.priority === filterPriority) &&
-      (filterCategory === '' || task.category === filterCategory)
-    );
+    filteredColumns[key] = columns[key].filter(task => {
+  const statusMatch = filterStatus === '' || task.status === filterStatus;
+  const priorityMatch = filterPriority === '' || task.priority === filterPriority;
+  const categoryMatch = filterCategory === '' || task.category === filterCategory;
+
+  return statusMatch && priorityMatch && categoryMatch;
+});
   }
 
   const priorityClassMap = {
@@ -152,9 +189,7 @@ function Home() {
           <button className="b1" onClick={() => setDarkMode(!darkMode)}>
             {darkMode ? '☀️ Mode Clair' : '🌙 Mode Sombre'}
           </button>
-          <button className="logout-btn" onClick={() => navigate('/')}>
-            Déconnecter
-          </button>
+          <button className="logout-btn" onClick={() => navigate('/')}>Déconnecter</button>
         </div>
       </header>
 
@@ -209,7 +244,7 @@ function Home() {
                       const isLate = isOverdue(task.deadline);
                       const isClose = isDeadlineClose(task.deadline);
                       return (
-                        <Draggable key={task.id} draggableId={task.id} index={index}>
+                        <Draggable key={task.id} draggableId={task.id.toString()} index={index}>
                           {(provided, snapshot) => (
                             <div
                               ref={provided.innerRef}
