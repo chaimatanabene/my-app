@@ -6,6 +6,7 @@ import './Home.css';
 
 function Home() {
   const navigate = useNavigate();
+  const token = localStorage.getItem('token');
 
   const [columns, setColumns] = useState({
     "À faire": [],
@@ -30,7 +31,12 @@ function Home() {
   const statuses = Object.keys(columns);
 
   useEffect(() => {
-    fetch('http://127.0.0.1:8000/api/tasks')
+    const token = localStorage.getItem('token');
+  fetch('http://127.0.0.1:8000/api/tasks', {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  })
       .then(res => res.json())
       .then(tasks => {
         const grouped = {
@@ -61,13 +67,19 @@ function Home() {
     if (editingTaskId) {
       await fetch(`http://127.0.0.1:8000/api/tasks/${editingTaskId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(newTask)
       });
     } else {
       const res = await fetch('http://127.0.0.1:8000/api/tasks', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(newTask)
       });
       const created = await res.json();
@@ -82,7 +94,11 @@ function Home() {
     setDeadline('');
     setStatus('À faire');
 
-    const res = await fetch('http://127.0.0.1:8000/api/tasks');
+    const res = await fetch('http://127.0.0.1:8000/api/tasks', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
     const updated = await res.json();
     const grouped = { "À faire": [], "En cours": [], "Terminé": [], "Annulé": [] };
     updated.forEach(t => grouped[t.status]?.push(t));
@@ -91,7 +107,10 @@ function Home() {
 
   const handleDeleteTask = async (taskId) => {
     await fetch(`http://127.0.0.1:8000/api/tasks/${taskId}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
     });
 
     setColumns(prev => {
@@ -114,55 +133,55 @@ function Home() {
   };
 
   const handleDragEnd = (result) => {
-  const { source, destination } = result;
+    const { source, destination } = result;
 
-  if (
-    !destination ||
-    (source.droppableId === destination.droppableId &&
-      source.index === destination.index)
-  ) {
-    return;
-  }
+    if (
+      !destination ||
+      (source.droppableId === destination.droppableId &&
+        source.index === destination.index)
+    ) {
+      return;
+    }
 
-  setColumns(prev => {
-    const updated = { ...prev };
-    const srcTasks = Array.from(updated[source.droppableId]);
-    const [movedTask] = srcTasks.splice(source.index, 1);
+    setColumns(prev => {
+      const updated = { ...prev };
+      const srcTasks = Array.from(updated[source.droppableId]);
+      const [movedTask] = srcTasks.splice(source.index, 1);
 
-    if (!movedTask) return prev;
+      if (!movedTask) return prev;
 
-    movedTask.status = destination.droppableId;
+      movedTask.status = destination.droppableId;
 
-    const destTasks = Array.from(updated[destination.droppableId] || []);
-    destTasks.splice(destination.index, 0, movedTask);
+      const destTasks = Array.from(updated[destination.droppableId] || []);
+      destTasks.splice(destination.index, 0, movedTask);
 
-    updated[source.droppableId] = srcTasks;
-    updated[destination.droppableId] = destTasks;
+      updated[source.droppableId] = srcTasks;
+      updated[destination.droppableId] = destTasks;
 
-    // 🔁 Send update to backend *after* state update
-    fetch(`http://127.0.0.1:8000/api/tasks/${movedTask.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(movedTask),
-    }).catch(err => {
-      console.error("Failed to update task status on backend", err);
+      fetch(`http://127.0.0.1:8000/api/tasks/${movedTask.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(movedTask),
+      }).catch(err => {
+        console.error("Failed to update task status on backend", err);
+      });
+
+      return updated;
     });
-
-    return updated;
-  });
-};
-
-
+  };
 
   const filteredColumns = {};
   for (const key of statuses) {
     filteredColumns[key] = columns[key].filter(task => {
-  const statusMatch = filterStatus === '' || task.status === filterStatus;
-  const priorityMatch = filterPriority === '' || task.priority === filterPriority;
-  const categoryMatch = filterCategory === '' || task.category === filterCategory;
+      const statusMatch = filterStatus === '' || task.status === filterStatus;
+      const priorityMatch = filterPriority === '' || task.priority === filterPriority;
+      const categoryMatch = filterCategory === '' || task.category === filterCategory;
 
-  return statusMatch && priorityMatch && categoryMatch;
-});
+      return statusMatch && priorityMatch && categoryMatch;
+    });
   }
 
   const priorityClassMap = {
