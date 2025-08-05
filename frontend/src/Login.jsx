@@ -7,7 +7,6 @@ function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  
   const handleLogin = async (e) => {
     e.preventDefault();
 
@@ -23,8 +22,11 @@ function Login() {
       const data = await response.json();
 
       if (response.ok) {
+        // ✅ Store the token in localStorage
+        localStorage.setItem('token', data.token);
+
         alert('Login successful!');
-        navigate('/home'); 
+        navigate('/home');
       } else {
         alert(data.error || 'Login failed.');
       }
@@ -33,7 +35,6 @@ function Login() {
       alert('Something went wrong.');
     }
   };
-
 
   return (
     <div className="login-container">
