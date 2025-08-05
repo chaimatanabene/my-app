@@ -2,57 +2,47 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './Login.css';
 
- function Signup() {
+function Signup() {
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
- const handleSignup = async (e) => {
-  e.preventDefault();
+  const handleSignup = async (e) => {
+    e.preventDefault();
 
-  if (password !== confirmPassword) {
-    alert('Passwords do not match!');
-    return;
-  }
-
-  try {
-    const response = await fetch('http://127.0.0.1:8000/api/signup', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        username,
-        email,
-        password,
-        password_confirmation: confirmPassword,
-      }),
-    });
-
-    const text = await response.text();
+    if (password !== confirmPassword) {
+      alert('Passwords do not match!');
+      return;
+    }
 
     try {
-      const data = JSON.parse(text);
+      const response = await fetch('http://127.0.0.1:8000/api/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: username.trim(),
+          email: email.trim(),
+          password,
+          password_confirmation: confirmPassword,
+        }),
+      });
+
+      const data = await response.json();
 
       if (response.ok) {
+        localStorage.setItem('token', data.token);
         alert('Signup successful!');
         navigate('/home');
       } else {
-        alert(data.error || Object.values(data)[0] || 'Signup failed.');
+        alert(data.message || Object.values(data)[0] || 'Signup failed.');
       }
-    } catch (e) {
-      console.error('Unexpected server response:', text);
-      alert('Unexpected server error.');
+    } catch (error) {
+      console.error('Signup request failed:', error);
+      alert('Network error. Please try again.');
     }
-  } catch (error) {
-    console.error('Signup request failed:', error);
-    alert('Network error. Please try again.');
-  }
-};
-
-
+  };
 
   return (
     <div className="signup-container">
@@ -61,7 +51,7 @@ import './Login.css';
 
         <input
           type="text"
-          className='Username'
+          className="Username"
           placeholder="Username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
@@ -70,7 +60,7 @@ import './Login.css';
 
         <input
           type="email"
-          className='Email'
+          className="Email"
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -79,7 +69,7 @@ import './Login.css';
 
         <input
           id="ps"
-          className='Password'
+          className="Password"
           type="password"
           placeholder="Password"
           value={password}
@@ -88,8 +78,8 @@ import './Login.css';
         />
 
         <input
-        className='Confirm-Password'
           id="ps1"
+          className="Confirm-Password"
           type="password"
           placeholder="Confirm Password"
           value={confirmPassword}
