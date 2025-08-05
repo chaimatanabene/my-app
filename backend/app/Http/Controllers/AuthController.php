@@ -31,7 +31,7 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
-        // ✅ Create token immediately after signup
+        
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
@@ -54,7 +54,7 @@ class AuthController extends Controller
             return response()->json(['error' => 'Invalid credentials'], 401);
         }
 
-        // ✅ Create token on login
+        
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
